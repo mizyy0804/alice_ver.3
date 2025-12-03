@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Modern Alice</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Griffy&display=swap" rel="stylesheet">
+
+    <style>
+        /* [폰트] 로컬 파일 (ZEN-SERIF-Regular.otf) 연결 */
+        @font-face {
+            font-family: 'ZenSerif';
+            src: url('./ZEN-SERIF-Regular.otf') format('opentype');
+            font-weight: normal;
+            font-display: swap;
+        }
+
+        /* 폰트 설정: 영문은 Griffy, 한글은 ZenSerif 적용 */
+        body { font-family: 'Griffy', 'ZenSerif', serif; }
+
+        /* 스크롤바 숨기기 */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 기본 애니메이션 */
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spin-slow-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        @keyframes gradient-xy { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* 단순 색반전 효과 */
+        .invert-hover { transition: filter 0.1s ease; }
+        .invert-hover:hover { filter: invert(1); }
+
+        /* 텍스트 반짝임 효과 */
+        @keyframes text-twinkle {
+            0%, 100% { opacity: 1; text-shadow: 0 0 10px #FF148A, 0 0 20px #FF148A; transform: scale(1); }
+            50% { opacity: 0.6; text-shadow: 0 0 2px #FF148A, 0 0 5px #FF148A; transform: scale(0.98); }
+        }
+        .animate-twinkle { animation: text-twinkle 2s ease-in-out infinite; }
+
+        /* 아이콘 흔들림 효과 */
+        @keyframes icon-shake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(3deg); }
+            50% { transform: rotate(0deg); }
+            75% { transform: rotate(-3deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .hover-shake:hover .icon-container {
+            animation: icon-shake 0.3s infinite linear;
+        }
+
+        /* 화려한 오로라 웨이브 배경 효과 */
+        @keyframes aurora-wave {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .bg-aurora {
+            background: linear-gradient(-45deg, #35C8FF, #FF148A, #FFFF00, #35C8FF);
+            background-size: 400% 400%;
+            animation: aurora-wave 6s ease infinite;
+            opacity: 0.6;
+            mix-blend-mode: overlay;
+        }
+
+        /* 유틸리티 클래스 */
+        .animate-spin-slow { animation: spin-slow 8s linear infinite; }
+        .animate-spin-slow-reverse { animation: spin-slow-reverse 8s linear infinite; }
+        .animate-marquee { animation: marquee 15s linear infinite; }
+        .animate-gradient-xy { background-size: 200% 200%; animation: gradient-xy 3s ease infinite; }
+        .animate-fade-in-up { animation: fade-in-up 0.5s ease-out forwards; }
+        body.hide-cursor { cursor: none; }
+        .bg-win95 {
+            background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="text-white overflow-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        /* --- 아이콘 헬퍼 --- */
+        const Icon = ({ name, size = 24, className = "" }) => {
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} width={size} height={size} className={className}></i>;
+        };
+
+        /* =========================================
+           [COMPONENT] Alice Portrait
+           ========================================= */
+        const AlicePortrait = ({ faceId = 1, visible = true }) => {
+            if (!visible) return null;
+            return (
+                <img 
+                    src={`./alice_face${faceId}.webp`} 
+                    alt="Alice Character"
+                    className="fixed bottom-0 right-[5%] max-h-[60vh] w-auto z-[10000] pointer-events-none animate-fade-in-up drop-shadow-2xl"
+                />
+            );
+        };
+
+        /* =========================================
+           [COMPONENT] Dialogue Box
+           ========================================= */
+        const DialogueBox = ({ text, onClick, showCursor = true }) => (
+            <div 
+                className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent pt-32 pb-8 px-8 flex flex-col justify-end z-[9999] cursor-pointer min-h-[30vh]"
+                onClick={onClick}
+            >
+                <div className="self-start bg-pink-600 text-white text-xl px-4 py-1 rounded-t-lg font-bold mb-1 animate-fade-in-up tracking-widest font-[Griffy]">
+                    Alice
+                </div>
+                <div className="w-full bg-black/80 border border-gray-700 rounded-b-lg rounded-tr-lg p-6 relative shadow-lg animate-fade-in-up">
+                    <p className="text-white text-xl leading-relaxed tracking-wide font-['ZenSerif']">{text}</p>
+                    {showCursor && <div className="absolute bottom-4 right-4 animate-bounce text-pink-500 text-xl">▼</div>}
+                </div>
+            </div>
+        );
+
+        /* =========================================
+           [GLOBAL] CUSTOM CURSOR
+           ========================================= */
+        const CustomCursor = ({ visible }) => {
+            const cursorRef = useRef(null);
+            useEffect(() => {
+                const moveCursor = (e) => {
+                    if (cursorRef.current) {
+                        cursorRef.current.style.left = `${e.clientX}px`;
+                        cursorRef.current.style.top = `${e.clientY}px`;
+                    }
+                };
+                if (visible) { document.body.classList.add('hide-cursor'); window.addEventListener('mousemove', moveCursor); }
+                else { document.body.classList.remove('hide-cursor'); }
+                return () => { window.removeEventListener('mousemove', moveCursor); document.body.classList.remove('hide-cursor'); };
+            }, [visible]);
+            if (!visible) return null;
+            return (
+                <img ref={cursorRef} src="./cursor.gif" onError={(e) => {e.target.src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExazF5eWpjYTJ5Z3J5eWpjYTJ5Z3J5eWpjYTJ5Z3J5eWpjYTJ5ZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/l0Exk8EUzSLsrErEQ/giphy.gif"}} alt="Custom Cursor" className="fixed pointer-events-none z-[9999] w-[150px] h-auto transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-100 ease-out hidden sm:block" style={{ left: '-100px', top: '-100px' }} />
+            );
+        };
+
+        /* =========================================
+           [SCENE 0] INTRO
+           ========================================= */
+        const IntroScene = ({ onNext }) => {
+            const [isStarted, setIsStarted] = useState(false);
+            const [dialogueStep, setDialogueStep] = useState(0);
+            
+            const dialogues = [
+                "오늘도... 아무 일도 없었네.",
+                "지루해. 뭔가 재미있는 거 없을까?",
+                "(스마트폰 화면이 반짝인다)"
+            ];
+
+            const handleStartClick = (e) => { e.stopPropagation(); setIsStarted(true); };
+            const handleDialogueClick = () => {
+                if (dialogueStep < dialogues.length - 1) setDialogueStep(dialogueStep + 1);
+                else onNext();
+            };
+
+            return (
+                <div 
+                    className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer" 
+                    onClick={isStarted ? handleDialogueClick : undefined}
+                    style={{
+                        backgroundImage: isStarted ? "url('./intro_room.webp')" : "none",
+                        backgroundSize: "cover",
+                        backgroundPosition: "center"
+                    }}
+                >
+                    {!isStarted && (
+                        <>
+                            <img src="./main_alice.webp" alt="Alice Start" className="w-full h-auto max-w-screen-lg max-h-[85vh] object-contain transition-all duration-200 invert-hover drop-shadow-2xl relative z-10" />
+                            <div className="absolute bottom-[12%] z-20 flex flex-col items-center gap-2">
+                                <button onClick={handleStartClick} className="text-[#FF148A] text-5xl md:text-6xl cursor-pointer hover:text-white transition-colors animate-twinkle font-[Griffy]" style={{ textShadow: '0 0 10px rgba(255, 20, 138, 0.5)' }}>
+                                    CLICK TO START
+                                </button>
+                            </div>
+                        </>
+                    )}
+                    {isStarted && (
+                        <>
+                            <AlicePortrait faceId={1} visible={true} />
+                            {dialogueStep < dialogues.length && (
+                                <DialogueBox text={dialogues[dialogueStep]} onClick={handleDialogueClick} />
+                            )}
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        /* =========================================
+           [SCENE 1] HUB
+           ========================================= */
+        const HubScene = ({ onSelectRoom, visitedRooms }) => {
+            const [loading, setLoading] = useState(true);
+            
+            // 허브 독백
+            const getThought = () => {
+                if (visitedRooms.size === 0) return "어디를 먼저 둘러볼까? 다 재밌어 보이는데...";
+                if (visitedRooms.size === 1) return "시간 가는 줄 모르겠네. 다음은 어디지?";
+                if (visitedRooms.size === 2) return "아직 안 가본 곳이 하나 남았어.";
+                return "이제 다 본 건가? ...아니야, 뭔가 부족해.";
+            };
+
+            useEffect(() => { const timer = setTimeout(() => setLoading(false), 2000); return () => clearTimeout(timer); }, []);
+
+            if (loading) {
+                return (
+                    <div className="w-full h-full bg-black flex flex-col items-center justify-center overflow-hidden">
+                        <div className="animate-spin-slow-reverse relative">
+                            <div className="w-32 h-32 border-4 border-dashed border-pink-500 rounded-full animate-spin-slow flex items-center justify-center"><span className="text-4xl animate-bounce">👩🏼</span></div>
+                        </div>
+                        <p className="text-pink-500 font-mono mt-8 animate-pulse tracking-widest">FALLING INTO THE FEED...</p>
+                        <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent_0_340deg,#ff007a_360deg)] opacity-20 animate-spin-slow pointer-events-none"></div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full h-full bg-[#35C8FF] relative overflow-hidden flex flex-col items-center justify-center">
+                    <div className="absolute inset-0 bg-aurora pointer-events-none"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle,transparent_40%,rgba(0,0,0,0.3)_100%)] pointer-events-none"></div>
+
+                    <h2 className="text-white text-3xl text-center mb-8 z-10 drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] tracking-widest font-[Griffy] animate-pulse">CHOOSE YOUR POISON!!</h2>
+                    
+                    <div className="grid grid-cols-2 gap-x-12 gap-y-8 z-10 w-full px-10 mb-20 place-items-center">
+                        <RoomButton id="shorts" title="Time-Killer" imgSrc="./btn_shorts.webp" badge="99+" onClick={onSelectRoom} visited={visitedRooms.has('shorts')} />
+                        <RoomButton id="meme" title="Cup of Meme" imgSrc="./btn_meme.webp" badge="N" onClick={onSelectRoom} visited={visitedRooms.has('meme')} />
+                        <div className="col-span-2">
+                            <RoomButton id="shopping" title="Live Shop" imgSrc="./btn_shopping.webp" badge="1" onClick={onSelectRoom} visited={visitedRooms.has('shopping')} />
+                        </div>
+                    </div>
+
+                    <AlicePortrait faceId={1} visible={true} />
+                    <DialogueBox text={getThought()} onClick={()=>{}} showCursor={false} />
+                </div>
+            );
+        };
+
+        const RoomButton = ({ id, title, imgSrc, badge, onClick, visited }) => (
+            <button onClick={() => onClick(id)} className="group relative flex flex-col items-center justify-center w-auto hover-shake">
+                <div className="icon-container relative w-32 h-32 rounded-[2rem] transition-transform duration-200 group-hover:scale-110 drop-shadow-2xl shadow-black/50">
+                    <img src={imgSrc} alt={title} className={`w-full h-full object-cover rounded-[2rem] ${visited ? 'opacity-60 grayscale' : ''}`} />
+                    {!visited && (
+                        <div className="absolute -top-3 -right-3 bg-red-600 text-white text-sm font-bold w-10 h-10 flex items-center justify-center rounded-full border-2 border-white shadow-lg animate-bounce z-20 font-[Griffy] tracking-tighter">
+                            {badge}
+                        </div>
+                    )}
+                    {visited && (
+                        <div className="absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-bl-xl z-20 font-[Griffy]">
+                            ✓
+                        </div>
+                    )}
+                </div>
+                <span className={`mt-3 text-lg text-center font-[Griffy] leading-tight ${visited ? 'text-gray-600' : 'text-white'} group-hover:text-pink-500 transition-colors drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]`}>
+                    {title}
+                </span>
+            </button>
+        );
+
+        /* =========================================
+           [DATA] VIDEO POOL
+           ========================================= */
+        const VIDEO_POOL = [
+            { id: 1, type: "file", username: "alice_lisa", description: "이게 맞아? 🌀 #wasterland", music: "Original Sound - Alice", likes: "1.2K", comments: "402", shares: "125", videoUrl: "./shorts_01.mp4", userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alice" },
+            { id: 2, type: "file", username: "mukbang_king", description: "야식 참기 LV.99 🍔", music: "Yummy - Cooking BGM", likes: "854K", comments: "2.1K", shares: "5.2K", videoUrl: "./shorts_02.mp4", userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Cook" },
+            { id: 3, type: "file", username: "puppy_lover", description: "귀여움 한도초과 🐶", music: "Happy Dog - BGM World", likes: "2.5M", comments: "10K", shares: "45K", videoUrl: "./shorts_03.mp4", userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Buster" },
+            { id: 4, type: "file", username: "dev_daily", description: "개발자 현실 코딩 💻 #error", music: "Lo-Fi Beats", likes: "12K", comments: "532", shares: "1.1K", videoUrl: "./shorts_04.mp4", userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dev" },
+            { id: 5, type: "file", username: "travel_vlog", description: "힐링되는 풍경 🌊 #ocean", music: "Ocean Waves", likes: "450K", comments: "3.4K", shares: "12K", videoUrl: "./shorts_05.mp4", userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Travel" },
+            { id: 6, type: "file", username: "satisfying_asmr", description: "마음이 편안해지는 영상 🎨", music: "Colors - Art BGM", likes: "98K", comments: "890", shares: "2.3K", videoUrl: "./shorts_06.mp4", userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Art" },
+            { id: 7, type: "file", username: "dance_challenge", description: "요즘 유행하는 챌린지 💃", music: "Trending Pop", likes: "1.1M", comments: "5K", shares: "20K", videoUrl: "./shorts_07.mp4", userAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dance" }
+        ];
+
+        /* [SCENE 2] SHORTS ROOM */
+        const ShortsRoom = () => {
+            const [videos, setVideos] = useState(VIDEO_POOL);
+            const [isMuted, setIsMuted] = useState(true);
+            const [showEntryDialogue, setShowEntryDialogue] = useState(true); // [추가] 입장 대사 상태
+            const observerRef = useRef(null);
+            const videoRefs = useRef([]);
+            const loadMore = useCallback(() => { setVideos(prev => [...prev, ...VIDEO_POOL.sort(() => Math.random() - 0.5)]); }, []);
+            
+            useEffect(() => {
+                const handleIntersection = (entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const index = Number(entry.target.dataset.index);
+                            const currentVideo = videoRefs.current[index];
+                            if (currentVideo) { currentVideo.muted = isMuted; currentVideo.currentTime = 0; currentVideo.play().catch(e => console.log("자동 재생 막힘")); }
+                            videoRefs.current.forEach((vid, idx) => { if (idx !== index && vid) vid.pause(); });
+                            if (index === videos.length - 1) loadMore();
+                        }
+                    });
+                };
+                const observer = new IntersectionObserver(handleIntersection, { threshold: 0.6 });
+                const slides = document.querySelectorAll('.video-slide');
+                slides.forEach(slide => observer.observe(slide));
+                return () => observer.disconnect();
+            }, [videos, loadMore, isMuted]);
+            useEffect(() => { videoRefs.current.forEach(video => { if (video) video.muted = isMuted; }); }, [isMuted]);
+
+            return (
+                <div className="w-full h-full bg-black overflow-y-scroll scrollbar-hide snap-y snap-mandatory relative">
+                    <div className="fixed top-0 w-full max-w-md z-20 flex justify-between items-center p-4 text-white/80 pointer-events-none">
+                        <span className="text-xl shadow-black drop-shadow-md flex items-center gap-1 font-[Griffy]">Shorts <Icon name="search" size={20} /></span>
+                        <button onClick={() => setIsMuted(!isMuted)} className="pointer-events-auto bg-black/40 backdrop-blur-sm p-2 rounded-full border border-white/20 hover:bg-white/20 transition-all text-white">
+                            {isMuted ? <Icon name="volume-x" size={24} /> : <Icon name="volume-2" size={24} />}
+                        </button>
+                    </div>
+                    {videos.map((video, index) => (
+                        <div key={`${video.id}-${index}`} data-index={index} className="video-slide w-full h-full snap-center relative flex items-center justify-center bg-gray-900 border-b border-gray-800">
+                            {video.type === 'file' ? <video ref={el => videoRefs.current[index] = el} src={video.videoUrl} className="w-full h-full object-cover" muted={isMuted} loop playsInline /> : <div className="text-white">Video Load Error</div>}
+                            <div className="absolute right-2 bottom-20 flex flex-col items-center gap-6 z-10 text-white">
+                                <div className="w-12 h-12 rounded-full bg-gray-700 p-[1px] overflow-hidden border border-white"><img src={video.userAvatar} className="w-full h-full object-cover"/></div>
+                                <div className="flex flex-col items-center gap-1 cursor-pointer hover:text-pink-500 transition-colors"><Icon name="heart" size={32} fill="rgba(255,255,255,0.2)" /> <span className="text-sm font-[Griffy]">{video.likes}</span></div>
+                                <div className="flex flex-col items-center gap-1"><Icon name="message-circle" size={32} /><span className="text-sm font-[Griffy]">{video.comments}</span></div>
+                                <div className="flex flex-col items-center gap-1"><Icon name="share-2" size={32} /><span className="text-sm font-[Griffy]">{video.shares}</span></div>
+                            </div>
+                            <div className="absolute left-0 bottom-0 w-full p-4 bg-gradient-to-t from-black/80 to-transparent text-white z-10">
+                                <div className="flex items-center gap-2 mb-2"><span className="text-xl font-bold font-[Griffy]">@{video.username}</span> <span className="text-blue-400 text-sm px-2 border border-blue-400 rounded font-['ZenSerif']">팔로우</span></div>
+                                <p className="text-lg mb-2 font-['ZenSerif']">{video.description}</p>
+                                <div className="flex items-center gap-2 text-sm opacity-80 animate-marquee whitespace-nowrap overflow-hidden w-1/2"><Icon name="music" size={16} /> <span className="font-[Griffy]">{video.music}</span></div>
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* [추가] 입장 대사 */}
+                    {showEntryDialogue && (
+                        <>
+                            <AlicePortrait faceId={1} visible={true} />
+                            <DialogueBox text="쇼츠는 정말 좋아. 그냥 계속 스크롤하자...질릴때까지." onClick={() => setShowEntryDialogue(false)} />
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        /* =========================================
+           [SCENE 3] MEME ROOM
+           ========================================= */
+        const MemeRoom = () => {
+            const [popups, setPopups] = useState([]);
+            const [pedroSpin, setPedroSpin] = useState(false);
+            const [dogFire, setDogFire] = useState(false);
+            const [catConfused, setCatConfused] = useState(false);
+            const [showEntryDialogue, setShowEntryDialogue] = useState(true); // [추가] 입장 대사 상태
+
+            const triggerPopup = (title, text) => {
+                const id = Date.now() + Math.random();
+                const x = Math.random() * 40 + 10; const y = Math.random() * 60 + 10; 
+                setPopups(prev => [...prev, { id, title, text, x, y }]);
+                setTimeout(() => setPopups(prev => prev.filter(p => p.id !== id)), 2000);
+            };
+            return (
+                <div className="w-full h-full bg-[#008080] flex flex-col relative overflow-hidden font-[System,sans-serif]">
+                    <div className="absolute inset-0 opacity-20 pointer-events-none bg-win95"></div>
+                    <div className="bg-[#000080] p-1 flex items-center justify-between shadow-md z-50">
+                        <div className="flex items-center gap-2 text-white text-sm font-[Griffy]"><Icon name="monitor" size={16} /> Meme_Explorer.exe</div>
+                        <div className="flex gap-1">
+                            <button className="w-4 h-4 bg-[#c0c0c0] border-2 border-white border-b-black border-r-black flex items-center justify-center"><Icon name="minimize-2" size={10}/></button>
+                            <button className="w-4 h-4 bg-[#c0c0c0] border-2 border-white border-b-black border-r-black flex items-center justify-center"><Icon name="maximize-2" size={10}/></button>
+                            <button className="w-4 h-4 bg-[#c0c0c0] border-2 border-white border-b-black border-r-black flex items-center justify-center text-xs">X</button>
+                        </div>
+                    </div>
+                    <div className="flex-1 relative">
+                        <div onClick={() => { setPedroSpin(true); triggerPopup("Raccoon.exe", "Pedro Pedro 🦝🔄"); setTimeout(() => setPedroSpin(false), 1000); }} className="absolute top-[20%] right-[10%] w-32 bg-[#c0c0c0] border-2 border-white border-b-black border-r-black shadow-xl cursor-pointer active:border-black active:border-b-white active:border-r-white">
+                            <div className="bg-[#000080] px-1 py-0.5 flex justify-between items-center"><span className="text-white text-[10px] font-bold">Raccoon.gif</span><span className="text-white text-[10px]">X</span></div>
+                            <div className="p-2 flex justify-center items-center bg-white border border-gray-500 m-1 h-24"><div className={`text-5xl ${pedroSpin ? 'animate-spin' : ''}`}>🦝</div></div>
+                        </div>
+                        <div onClick={() => { setDogFire(true); triggerPopup("Dog_Logic.dll", "This is fine. 🔥"); setTimeout(() => setDogFire(false), 2000); }} className="absolute top-[45%] left-[10%] w-36 bg-[#c0c0c0] border-2 border-white border-b-black border-r-black shadow-xl cursor-pointer hover:scale-105 transition-transform">
+                            <div className="bg-red-800 px-1 py-0.5 flex justify-between items-center"><span className="text-white text-[10px] font-bold">WARNING</span></div>
+                            <div className="p-2 flex flex-col items-center bg-white border border-gray-500 m-1 h-28 justify-center relative overflow-hidden">
+                                <div className="text-5xl z-10">🐶</div>
+                                {dogFire && <div className="absolute inset-0 bg-orange-500/50 animate-pulse flex items-end justify-center"><Icon name="flame" className="text-red-600 w-full h-full animate-bounce"/></div>}
+                                <p className="text-[10px] mt-1 font-mono text-black">Status: {dogFire ? 'BURNING' : 'FINE'}</p>
+                            </div>
+                        </div>
+                        <div onClick={() => { setCatConfused(true); triggerPopup("System Error", "What??? 😿"); setTimeout(() => setCatConfused(false), 500); }} className="absolute bottom-[15%] left-1/2 -translate-x-1/2 w-32 bg-[#c0c0c0] border-2 border-white border-b-black border-r-black shadow-xl cursor-pointer">
+                            <div className="bg-gray-400 px-1 py-0.5 flex justify-between items-center"><span className="text-black text-[10px] font-bold">System Error</span></div>
+                            <div className="p-2 flex items-center justify-center bg-[#c0c0c0] h-20"><div className={`text-5xl ${catConfused ? 'translate-x-1 -translate-y-1' : ''}`}>{catConfused ? '🙀' : '😿'}</div></div>
+                            <div className="flex justify-center pb-1"><button className="px-2 py-0.5 text-[10px] border border-black shadow bg-gray-200 active:bg-gray-400 text-black">OK</button></div>
+                        </div>
+                        {popups.map((p) => (
+                            <div key={p.id} className="absolute z-50 bg-[#ffffe0] border border-black px-2 py-1 text-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] font-mono animate-in zoom-in duration-200 text-black" style={{ top: `${p.y}%`, left: `${p.x}%` }}>
+                                <div className="flex items-center gap-1 text-blue-800 font-bold mb-1 border-b border-black/20 pb-1"><Icon name="info" size={10} /> {p.title}</div>
+                                <div className="pt-1 font-bold">{p.text}</div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="h-8 bg-[#c0c0c0] border-t-2 border-white flex items-center px-2 gap-1">
+                        <button className="flex items-center gap-1 px-2 py-0.5 bg-[#c0c0c0] border-2 border-white border-b-black border-r-black shadow active:border-black active:border-t-black active:bg-gray-400">
+                            <img src="https://win98icons.alexmeub.com/icons/png/windows-0.png" className="w-4 h-4" alt="start"/><span className="text-xs font-bold text-black">Start</span>
+                        </button>
+                        <div className="flex-1"></div>
+                        <div className="px-2 py-0.5 border-2 border-gray-500 border-b-white border-r-white bg-gray-200 text-xs text-black">3:00 AM</div>
+                    </div>
+
+                    {/* [추가] 입장 대사 */}
+                    {showEntryDialogue && (
+                        <>
+                            <AlicePortrait faceId={1} visible={true} />
+                            <DialogueBox text="요즘 최신 밈은 무조건 알고 있어야지." onClick={() => setShowEntryDialogue(false)} />
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        /* =========================================
+           [SCENE 4] SHOPPING ROULETTE
+           ========================================= */
+        const ShoppingRoulette = () => {
+            const [isSpinning, setIsSpinning] = useState(false);
+            const [rotation, setRotation] = useState(0);
+            const [showPopup, setShowPopup] = useState(false);
+            const [showCardForm, setShowCardForm] = useState(false);
+            const [isProcessing, setIsProcessing] = useState(false);
+            const [showError, setShowError] = useState(false);
+            const [showPostErrorDialogue, setShowPostErrorDialogue] = useState(false);
+            const [showEntryDialogue, setShowEntryDialogue] = useState(true); // [추가] 입장 대사 상태
+
+            const handleSpin = () => {
+                if (isSpinning) return;
+                setIsSpinning(true);
+                setRotation(rotation + 1800 + Math.random() * 30 + 20);
+                setTimeout(() => { setIsSpinning(false); setShowPopup(true); }, 3000);
+            };
+
+            const handleSubmitCard = () => {
+                setIsProcessing(true);
+                setTimeout(() => {
+                    setIsProcessing(false); setShowCardForm(false); setShowPopup(false); setShowError(true);
+                    setShowPostErrorDialogue(true);
+                }, 2000);
+            };
+
+            const resetRoom = () => { setShowError(false); setRotation(0); setShowPostErrorDialogue(false); };
+
+            return (
+                <div className="w-full h-full bg-[#FF5000] flex flex-col overflow-hidden relative items-center font-sans">
+                    <div className="bg-black/80 text-yellow-400 text-xl py-1 w-full overflow-hidden whitespace-nowrap z-10">
+                        <div className="animate-marquee inline-block font-['ZenSerif']">🎉 김*지님이 아이폰 15 Pro에 당첨되었습니다! 🎉 이*혁님이 500,000원 쿠폰을 받았습니다!</div>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center p-4 w-full overflow-y-auto">
+                        <h1 className="text-5xl text-white italic transform -rotate-2 mt-4 mb-6 drop-shadow-lg font-[Griffy]">LUCKY SPIN</h1>
+                        <div className="relative w-64 h-64 mb-6 shrink-0">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-4 z-20 w-0 h-0 border-x-[15px] border-x-transparent border-t-[30px] border-t-yellow-400"></div>
+                            <div className="w-full h-full rounded-full border-8 border-yellow-400 bg-white overflow-hidden transition-transform duration-[3000ms] cubic-bezier(0.2, 0.8, 0.2, 1)" style={{ transform: `rotate(${rotation}deg)` }}>
+                                <div className="absolute inset-0" style={{ background: `conic-gradient(#f00 0deg 60deg, #fff 60deg 120deg, #f00 120deg 180deg, #fff 180deg 240deg, #f00 240deg 300deg, #fff 300deg 360deg)` }}></div>
+                                <div className="absolute inset-0 flex items-center justify-center"><div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center text-red-600 border-4 border-white z-10 text-2xl font-[Griffy]">SPIN</div></div>
+                            </div>
+                        </div>
+                        <button onClick={handleSpin} disabled={isSpinning} className="w-full py-3 rounded-full bg-yellow-400 text-red-600 text-2xl shadow-lg animate-pulse mb-4 shrink-0 font-['ZenSerif'] font-bold">
+                            {isSpinning ? '추첨 중...' : '무료로 돌리기!'}
+                        </button>
+                        <div className="w-full bg-white rounded-lg p-3 shadow-lg space-y-2 text-black">
+                            <div className="flex items-center border-b pb-2"><div className="w-10 h-10 bg-gray-200 mr-2 rounded"></div><div className="text-sm flex-1 font-['ZenSerif']"><p>초특가 상품</p><span className="text-red-500">₩100</span></div><button className="bg-[#FF5000] text-white text-sm px-2 py-1 rounded-full font-['ZenSerif']">구매</button></div>
+                        </div>
+                    </div>
+                    {showPopup && !showCardForm && !showError && (
+                        <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-in fade-in">
+                            <div className="bg-white w-full rounded-xl p-6 border-4 border-yellow-400 relative text-center shadow-2xl text-black">
+                                <button onClick={() => setShowPopup(false)} className="absolute top-2 right-2 text-gray-300 hover:text-gray-500"><Icon name="x" size={16}/></button>
+                                <Icon name="gift" className="w-12 h-12 text-red-500 mx-auto mb-2 animate-bounce" />
+                                <h2 className="text-3xl text-gray-900 font-['ZenSerif'] font-bold">500,000원 당첨!</h2>
+                                <div className="bg-gray-100 p-3 rounded my-4"><p className="text-sm text-gray-500 font-['ZenSerif']"><Icon name="alert-circle" size={12} className="inline mr-1"/> 출금까지 <span className="text-red-500 font-bold">100원</span> 부족합니다.</p></div>
+                                <button onClick={() => setShowCardForm(true)} className="w-full bg-[#FF5000] text-white py-3 rounded-lg text-2xl flex items-center justify-center font-['ZenSerif'] font-bold">지금 채우기 <Icon name="chevron-right" size={24}/></button>
+                            </div>
+                        </div>
+                    )}
+                    {showCardForm && !isProcessing && (
+                        <div className="absolute inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-in slide-in-from-bottom text-black">
+                            <div className="bg-white w-full rounded-xl p-6 relative">
+                                <button onClick={() => setShowCardForm(false)} className="absolute top-2 right-2"><Icon name="x" size={20}/></button>
+                                <h3 className="text-2xl mb-4 flex items-center font-['ZenSerif'] font-bold"><Icon name="credit-card" className="mr-2 text-[#FF5000]"/> 본인 인증</h3>
+                                <input placeholder="카드 번호" className="w-full border p-3 rounded mb-2 text-xl outline-none focus:border-[#FF5000] font-['ZenSerif']"/>
+                                <div className="flex gap-2 mb-4"><input placeholder="MM/YY" className="w-1/2 border p-3 rounded text-xl outline-none focus:border-[#FF5000] font-['ZenSerif']"/><input placeholder="CVC" className="w-1/2 border p-3 rounded text-xl outline-none focus:border-[#FF5000] font-['ZenSerif']"/></div>
+                                <button onClick={handleSubmitCard} className="w-full bg-black text-white py-3 rounded-lg text-2xl hover:bg-gray-800 transition-colors font-['ZenSerif'] font-bold">인증하고 받기</button>
+                            </div>
+                        </div>
+                    )}
+                    {isProcessing && (
+                        <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center text-white">
+                            <Icon name="refresh-cw" className="w-12 h-12 animate-spin mb-4 text-[#FF5000]" />
+                            <p className="text-2xl animate-pulse font-['ZenSerif']">결제 승인 중...</p>
+                            <p className="text-sm text-gray-400 mt-2 font-['ZenSerif']">서버와 연결하고 있습니다</p>
+                        </div>
+                    )}
+                    {showError && (
+                        <div className="absolute inset-0 z-50 bg-white flex flex-col items-center justify-center p-6 text-center animate-in zoom-in duration-200 text-black">
+                            <Icon name="alert-circle" className="w-16 h-16 text-red-600 mb-4" />
+                            <h2 className="text-4xl text-red-600 mb-2 font-[Griffy]">ERROR 404</h2>
+                            <p className="text-gray-800 text-xl mb-1 font-['ZenSerif'] font-bold">알 수 없는 오류가 발생했습니다.</p>
+                            <p className="text-sm text-gray-500 mb-6 font-['ZenSerif']">네트워크 연결이 불안정하거나 잔액이 부족할 수 있습니다.</p>
+                            <button onClick={resetRoom} className="bg-black text-white px-6 py-3 rounded-lg text-xl font-['ZenSerif'] font-bold">처음으로 돌아가기</button>
+                        </div>
+                    )}
+
+                    {/* [추가] 입장 대사 */}
+                    {showEntryDialogue && (
+                        <>
+                            <AlicePortrait faceId={1} visible={true} />
+                            <DialogueBox text="개인정보가 넘어간다는 소문이 있던데... 모르겠고. 일단 돌려볼까?" onClick={() => setShowEntryDialogue(false)} />
+                        </>
+                    )}
+
+                    {/* 에러 후 나오는 대사 */}
+                    {showPostErrorDialogue && (
+                        <>
+                            <AlicePortrait faceId={1} visible={true} />
+                            <DialogueBox 
+                                text="아니 왜 또 안된다는거야? 다 입력했는데 짜증나게..." 
+                                onClick={() => setShowPostErrorDialogue(false)} 
+                            />
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        /* =========================================
+           [SCENE 5] ENDING: Low Battery & Visual Novel
+           ========================================= */
+        const EndingScene = ({ onRestart }) => {
+            const [step, setStep] = useState('warning'); 
+            const [textIndex, setTextIndex] = useState(0);
+            
+            const texts = ["어라...", "배터리가...", "벌써 새벽 3시야.", "눈이 너무 뻑뻑해. 이제 그만 잘까?", "...아니면 조금만 더 볼까?"];
+            const [extraTexts, setExtraTexts] = useState([]);
+            const [showFinalChoice, setShowFinalChoice] = useState(false);
+
+            useEffect(() => {
+                if (step === 'warning') { const timer = setTimeout(() => setStep('scene'), 3000); return () => clearTimeout(timer); }
+            }, [step]);
+
+            const handleNextText = () => { 
+                if (extraTexts.length > 0) {
+                    const nextExtra = extraTexts.slice(1);
+                    if (nextExtra.length > 0) {
+                        setExtraTexts(nextExtra);
+                    } else {
+                        setExtraTexts([]); 
+                        setShowFinalChoice(true);
+                        setStep('choice');
+                    }
+                    return;
+                }
+                if (textIndex < texts.length - 1) {
+                    setTextIndex(textIndex + 1);
+                } else {
+                    setStep('choice');
+                }
+            };
+
+            const handleRefuseSleep = () => {
+                setStep('scene'); 
+                setExtraTexts(["아니...", "역시 잠이 안 와.", "조금만 더 볼까?"]);
+            };
+
+            const currentText = extraTexts.length > 0 ? extraTexts[0] : texts[textIndex];
+
+            // 엔딩 씬에서 얼굴 결정 (2번: 졸림, 3번: 중독)
+            const currentFaceId = (step === 'choice' && showFinalChoice) ? 3 : 2;
+
+            return (
+                <div className="relative w-full h-full bg-[#111] overflow-hidden cursor-none" onClick={step === 'scene' ? handleNextText : undefined}>
+                    {step === 'warning' && (
+                        <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center animate-pulse">
+                            <Icon name="battery-warning" size={64} className="text-red-500 mb-4" />
+                            <h1 className="text-red-500 text-4xl tracking-widest font-[Griffy]">LOW BATTERY</h1>
+                            <p className="text-red-500/50 mt-2 font-[Griffy]">1% remaining...</p>
+                        </div>
+                    )}
+
+                    <div className={`absolute inset-0 transition-opacity duration-1000 ${step === 'warning' ? 'opacity-0' : 'opacity-100'}`}>
+                        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/sketch-header.png')] bg-repeat"></div>
+                        <div className="absolute top-4 right-4 flex items-center gap-2 z-10"><span className="text-red-500 text-xl font-bold animate-pulse font-[Griffy]">1%</span><div className="w-6 h-3 border border-red-500 flex p-[1px]"><div className="w-[10%] h-full bg-red-500"></div></div></div>
+                        
+                        <AlicePortrait faceId={currentFaceId} visible={true} />
+                        <DialogueBox text={currentText} onClick={step === 'scene' ? handleNextText : undefined} />
+                    </div>
+
+                    {step === 'choice' && !showFinalChoice && extraTexts.length === 0 && (
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4 animate-in fade-in">
+                            <button className="w-64 py-4 bg-gray-800 border border-gray-600 text-gray-300 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-700 font-['ZenSerif']" onClick={handleRefuseSleep}>
+                                <Icon name="moon" size={24} /><span className="text-2xl">이제 그만 잔다</span>
+                            </button>
+                            <button className="w-64 py-4 bg-pink-600 border border-pink-400 text-white rounded-xl shadow-[0_0_20px_rgba(236,72,153,0.5)] flex items-center justify-center gap-2 hover:scale-105 transition-transform font-['ZenSerif']" onClick={onRestart}>
+                                <Icon name="refresh-cw" size={24} className="animate-spin-slow" /><span className="text-2xl">조금만 더 볼까...?</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {step === 'choice' && showFinalChoice && (
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4 animate-in fade-in">
+                            <button className="w-64 py-4 bg-pink-600 border border-pink-400 text-white rounded-xl shadow-[0_0_20px_rgba(236,72,153,0.5)] flex items-center justify-center gap-2 hover:scale-105 transition-transform animate-pulse font-['ZenSerif']" onClick={onRestart}>
+                                <Icon name="refresh-cw" size={24} className="animate-spin-slow" /><span className="text-2xl">조금만 더 볼까...?</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        /* =========================================
+           [MAIN APP]
+           ========================================= */
+        const ModernAliceApp = () => {
+            const [currentScene, setCurrentScene] = useState('intro'); 
+            const [visitedRooms, setVisitedRooms] = useState(new Set()); 
+
+            const handleRoomSelect = (room) => {
+                const newVisited = new Set(visitedRooms); newVisited.add(room); setVisitedRooms(newVisited); setCurrentScene(room);
+            };
+            const handleBackToHub = () => {
+                if (visitedRooms.size >= 3) setCurrentScene('ending'); else setCurrentScene('hub');
+            };
+            const handleRestart = () => { setVisitedRooms(new Set()); setCurrentScene('intro'); };
+
+            const renderScene = () => {
+                switch (currentScene) {
+                    case 'intro': return <IntroScene onNext={() => setCurrentScene('hub')} />;
+                    case 'hub': return <HubScene onSelectRoom={handleRoomSelect} visitedRooms={visitedRooms} />;
+                    case 'shorts': return <ShortsRoom />;
+                    case 'meme': return <MemeRoom />;
+                    case 'shopping': return <ShoppingRoulette />;
+                    case 'ending': return <EndingScene onRestart={handleRestart} />;
+                    default: return <IntroScene onNext={() => setCurrentScene('hub')} />;
+                }
+            };
+
+            const isIntro = currentScene === 'intro';
+            const containerClass = isIntro 
+                ? "relative w-full h-full flex items-center justify-center overflow-hidden" 
+                : "relative w-full max-w-md h-[100dvh] max-h-[900px] overflow-hidden bg-black shadow-2xl rounded-none sm:rounded-3xl border-0 sm:border-8 border-gray-900";
+
+            return (
+                <div 
+                    className={`flex justify-center items-center min-h-screen font-sans selection:bg-pink-500 selection:text-white`}
+                    style={{
+                        backgroundImage: "url('./bg_global.webp')",
+                        backgroundSize: "cover",
+                        backgroundPosition: "center"
+                    }}
+                >
+                    <CustomCursor visible={currentScene === 'shorts'} />
+                    
+                    <div className={containerClass}>
+                        {renderScene()}
+                        
+                        {/* 뒤로가기 버튼 */}
+                        {['shorts', 'meme', 'shopping'].includes(currentScene) && (
+                            <button onClick={handleBackToHub} className="absolute top-4 left-4 z-50 w-10 h-10 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 hover:bg-white hover:text-black transition-all">
+                                <Icon name="arrow-left" size={20} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ModernAliceApp />);
+    </script>
+</body>
+</html>
